@@ -123,7 +123,7 @@
     <Compile Include="QueueLoggerSettings.cs" />
     <Compile Include="ServiceBusActivityLogger.cs" />
     <Compile Include="ServiceBusQueueReader.cs" />
-    <Compile Include="SqlServerLogger.cs" />
+    <Compile Include="EntityFrameworkLogger.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

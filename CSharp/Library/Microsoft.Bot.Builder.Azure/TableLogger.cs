@@ -266,7 +266,12 @@ namespace Microsoft.Bot.Builder.Azure
 
         async Task IActivityManager.DeleteUserActivitiesAsync(string userId, CancellationToken cancel)
         {
-            var query = new TableQuery<ActivityEntity>().Select(new string[] { TableConstants.PartitionKey, TableConstants.RowKey, "From", "Recipient" });
+            var query = new TableQuery<ActivityEntity>()
+                .Select(new string[]
+                {
+                    TableConstants.PartitionKey,
+                    TableConstants.RowKey, "From", "Recipient"
+                });
             await DeleteAsync(query, cancel, qs => (from r in qs where r.From == userId || r.Recipient == userId select r));
         }
 
