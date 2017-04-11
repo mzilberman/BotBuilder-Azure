@@ -94,14 +94,9 @@ namespace Microsoft.Bot.Builder.Azure.Logging
             var filteredActivities = from activity in activities where activity.Timestamp < oldest select activity;
 
             //now we need to generate rehydrated objects
-            foreach (var filteredActivity in filteredActivities)
-            {
-                activityList.Add(JsonConvert.DeserializeObject<Activity>(filteredActivity.ActivityJson));
-            }
+            filteredActivities.ForEach(a => activityList.Add(JsonConvert.DeserializeObject<Activity>(a.ActivityJson)));
 
             return activityList;
-
-            //filter on activities
         }
 
         public Task WalkActivitiesAsync(Func<IActivity, Task> function, string channelId = null, string conversationId = null,
@@ -127,7 +122,29 @@ namespace Microsoft.Bot.Builder.Azure.Logging
 
         public Task DeleteBeforeAsync(DateTime oldest, CancellationToken cancel = new CancellationToken())
         {
-            throw new NotImplementedException();
+            var task = Task.Run(() =>
+            {
+                //find all activities with the date older than "oldest"
+                var toBeDeletedList = (from activity in _loggingDbContext.Activities
+                                       where activity.Timestamp < oldest
+                                       select activity)
+                    //avoid changing the cursor while iterating
+                    .ToList();
+
+                // first remove all Activities belonging to the user, needs to be done as there is no guarantee that 
+                // cascade delete is enabled.
+                toBeDeletedList.ForEach(a => _loggingDbContext.Activities.Remove(a));
+                // now remove all conversations for the user.
+                toBeDeletedList.Select(c => c.Conversation_Id)
+                    .Distinct()
+                    .ForEach(a => _loggingDbContext.Conversations
+                    .Remove(_loggingDbContext.Conversations.Find(a)));
+
+                if (_entityFrameworkLoggerSettings.AutoCommit)
+                    _loggingDbContext.SaveChanges();
+            });
+
+            return task;
         }
 
         public Task DeleteUserActivitiesAsync(string userId, CancellationToken cancel = new CancellationToken())
@@ -141,7 +158,8 @@ namespace Microsoft.Bot.Builder.Azure.Logging
                    //avoid changing the cursor while iterating
                    .ToList();
 
-               // first remove all Activities belonging to the user
+               // first remove all Activities belonging to the user,needs to be done as there is no guarantee that 
+               // cascade delete is enabled.
                toBeDeletedList.ForEach(a => _loggingDbContext.Activities.Remove(a));
                // now remove all conversations for the user.
                toBeDeletedList.Select(c => c.Conversation_Id)
